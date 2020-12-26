@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30114.105
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Import2Strava", "Import2Strava\Import2Strava.csproj", "{E265C1C8-10BA-41DA-82A1-E3A032C98D2A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E265C1C8-10BA-41DA-82A1-E3A032C98D2A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E265C1C8-10BA-41DA-82A1-E3A032C98D2A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E265C1C8-10BA-41DA-82A1-E3A032C98D2A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E265C1C8-10BA-41DA-82A1-E3A032C98D2A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {426C3A57-519F-4C32-B36E-B6C074F177D4}
+	EndGlobalSection
+EndGlobal
