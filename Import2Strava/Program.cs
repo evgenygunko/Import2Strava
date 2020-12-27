@@ -1,50 +1,40 @@
-﻿using Import2Strava.Models;
-using Microsoft.Extensions.Configuration;
+using Import2Strava.Services;
+using MatBlazor;
+using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using System;
+using System.Threading.Tasks;
 
 namespace Import2Strava
 {
     public class Program
     {
-        public static void Main(string[] args) => CreateHostBuilder(args).Build().Run();
+        public static async Task Main(string[] args)
+        {
+            var builder = WebAssemblyHostBuilder.CreateDefault(args);
+            builder.RootComponents.Add<App>("#app");
 
-        static IHostBuilder CreateHostBuilder(string[] args) =>
-            Host.CreateDefaultBuilder(args)
-                .ConfigureAppConfiguration((hostingContext, configuration) =>
-                {
-                    configuration
-                        .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+            builder.Services.AddHttpClient<IProfileDataService, ProfileDataService>(client =>
+            {
+                client.BaseAddress = new Uri("https://www.strava.com");
 
-                    // Save access token in secret storage, see https://docs.microsoft.com/en-us/aspnet/core/security/app-secrets?view=aspnetcore-5.0&tabs=windows
-                    // To save the key in the secret storage, run this command in the directory with your project file: dotnet user-secrets set "Strava:AccessToken" "your_token".
-                    // The command below loads configuration for Secret Storage and names it available with a call: configuration["Strava:AccessToken"]
-                    configuration.AddUserSecrets<UploaderService>();
-                })
-                .ConfigureServices((hostContext, services) =>
-                {
-                    services.AddLogging();
-                    services.Configure<AppConfiguration>(hostContext.Configuration.GetSection("Application"));
+                string accessToken = "123";
+                client.DefaultRequestHeaders.Add("Authorization", "Bearer " + accessToken);
+            });
 
-                    services.AddHttpClient<IImportFile, ImportFile>(client =>
-                    {
-                        client.BaseAddress = new Uri("https://www.strava.com");
+            builder.Services.AddHttpClient<IImportFile, ImportFile>(client =>
+            {
+                client.BaseAddress = new Uri("https://www.strava.com");
 
-                        IConfiguration configuration = hostContext.Configuration;
-                        string accessToken = configuration["Strava:AccessToken"];
+                string accessToken = "123";
+                client.DefaultRequestHeaders.Add("Authorization", "Bearer " + accessToken);
+            });
 
-                        client.DefaultRequestHeaders.Add("Authorization", "Bearer " + accessToken);
-                    });
+            builder.Services.AddSingleton<IUploaderService, UploaderService>();
 
-                    services.AddHostedService<UploaderService>();
-                })
-                .ConfigureLogging((hostContext, configLogging) =>
-                {
-                    configLogging.AddConsole();
+            builder.Services.AddMatBlazor();
 
-                })
-                .UseConsoleLifetime();
+            await builder.Build().RunAsync();
+        }
     }
 }

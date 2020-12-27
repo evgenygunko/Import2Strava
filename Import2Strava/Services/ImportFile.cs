@@ -7,7 +7,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Import2Strava
+namespace Import2Strava.Services
 {
     public interface IImportFile
     {

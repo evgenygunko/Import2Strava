@@ -1,0 +1,16 @@
+﻿@page "/uploadactivities"
+
+<h1>Upload activities</h1>
+
+
+<div>
+    <MatCheckbox @bind-Value="@DryRun" Label="Dry run"></MatCheckbox>
+</div>
+
+<div>
+    <MatTextField Style="width: 400px;" @bind-Value="@PathToWorkouts" Label="Select a folder with Endomondo workouts" Outlined="true" Required="true"></MatTextField>
+</div>
+
+<div>
+    <MatButton>Upload</MatButton>
+</div>

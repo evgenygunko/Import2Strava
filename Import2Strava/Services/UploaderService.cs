@@ -1,5 +1,4 @@
 ﻿using Import2Strava.Models;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System;
@@ -7,9 +6,14 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Import2Strava
+namespace Import2Strava.Services
 {
-    public class UploaderService : IHostedService
+    public interface IUploaderService
+    {
+        Task UploadWorkouts(CancellationToken cancellationToken);
+    }
+
+    public class UploaderService : IUploaderService
     {
         private ILogger<UploaderService> _logger;
         private IImportFile _importFile;
@@ -27,11 +31,11 @@ namespace Import2Strava
             _dryRun = options.Value.DryRun;
         }
 
-        public async Task StartAsync(CancellationToken cancellationToken)
+        public async Task UploadWorkouts(CancellationToken cancellationToken)
         {
             if (!Directory.Exists(_pathToWorkouts))
             {
-                _logger.LogError($"Cannot find path to the workouts data: {_pathToWorkouts}. Please configure it in the appsetting.json and restart the application.");
+                _logger.LogError($"Cannot find path to the workouts data: {_pathToWorkouts}.");
                 return;
             }
 
@@ -59,7 +63,7 @@ namespace Import2Strava
                         bool result = await _importFile.ImportAsync(workoutModel, _dryRun, cancellationToken);
                         if (!result)
                         {
-                            _logger.LogError($"Could not upload workout '{_pathToWorkouts}'. Please investigate the error and restart the application.");
+                            _logger.LogError($"Could not upload workout '{_pathToWorkouts}'.");
                             return;
                         }
 
@@ -75,16 +79,10 @@ namespace Import2Strava
             catch (Exception ex)
             {
                 _logger.LogError("An error occurred: " + ex);
-                _logger.LogError("Please investigate the error and restart the application.");
                 return;
             }
 
             _logger.LogInformation("All done.");
-        }
-
-        public Task StopAsync(CancellationToken cancellationToken)
-        {
-            return Task.CompletedTask;
         }
     }
 }
