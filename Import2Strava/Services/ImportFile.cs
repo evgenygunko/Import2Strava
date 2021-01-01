@@ -4,6 +4,7 @@ using Newtonsoft.Json;
 using System;
 using System.IO;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -16,13 +17,17 @@ namespace Import2Strava.Services
 
     public class ImportFile : IImportFile
     {
-        private ILogger<ImportFile> _logger;
-        private HttpClient _httpClient;
+        private readonly HttpClient _httpClient;
+        private readonly ILogger<ImportFile> _logger;
+        private readonly IAuthenticationService _authenticationService;
 
-        public ImportFile(HttpClient httpClient, ILogger<ImportFile> logger)
+        public ImportFile(HttpClient httpClient,
+            ILogger<ImportFile> logger,
+            IAuthenticationService authenticationService)
         {
             _httpClient = httpClient;
             _logger = logger;
+            _authenticationService = authenticationService;
         }
 
         public async Task<bool> ImportAsync(WorkoutModel workoutModel, bool dryRun, CancellationToken cancellationToken)
@@ -31,6 +36,15 @@ namespace Import2Strava.Services
             {
                 return true;
             }
+
+            string accessToken = await _authenticationService.GetAccessTokenAsync();
+            if (string.IsNullOrEmpty(accessToken))
+            {
+                _logger.LogWarning("Could not get access token, the operation is canceled.");
+                return false;
+            }
+
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
             using (MultipartFormDataContent form = new MultipartFormDataContent())
             {

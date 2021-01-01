@@ -10,29 +10,32 @@ namespace Import2Strava.Services
 {
     public interface IUploaderService
     {
-        Task UploadWorkouts(CancellationToken cancellationToken);
+        Task UploadWorkoutsAsync(bool dryRun, CancellationToken cancellationToken);
     }
 
     public class UploaderService : IUploaderService
     {
-        private ILogger<UploaderService> _logger;
-        private IImportFile _importFile;
-        private string _pathToWorkouts;
-        private bool _dryRun;
+        private readonly ILogger<UploaderService> _logger;
+        private readonly IOptions<AppConfiguration> _appConfiguration;
+        private readonly IImportFile _importFile;
+        private readonly IAuthenticationService _authenticationService;
 
-        public UploaderService(ILogger<UploaderService> logger,
+        public UploaderService(
+            ILogger<UploaderService> logger,
             IOptions<AppConfiguration> options,
-            IImportFile importFile)
+            IImportFile importFile,
+            IAuthenticationService authenticationService)
         {
             _logger = logger;
+            _appConfiguration = options;
             _importFile = importFile;
-
-            _pathToWorkouts = options.Value.PathToWorkouts;
-            _dryRun = options.Value.DryRun;
+            _authenticationService = authenticationService;
         }
 
-        public async Task UploadWorkouts(CancellationToken cancellationToken)
+        public async Task UploadWorkoutsAsync(bool dryRun, CancellationToken cancellationToken)
         {
+            string _pathToWorkouts = _appConfiguration.Value.PathToWorkouts;
+
             if (!Directory.Exists(_pathToWorkouts))
             {
                 _logger.LogError($"Cannot find path to the workouts data: {_pathToWorkouts}.");
@@ -58,16 +61,16 @@ namespace Import2Strava.Services
                         }
 
                         _logger.LogInformation($"{i++}: Will upload {fileInfo.Name}");
-                        WorkoutModel workoutModel = WorkoutModel.FromFile(fileInfo.FullName, _dryRun);
+                        WorkoutModel workoutModel = WorkoutModel.FromFile(fileInfo.FullName, dryRun);
 
-                        bool result = await _importFile.ImportAsync(workoutModel, _dryRun, cancellationToken);
+                        bool result = await _importFile.ImportAsync(workoutModel, dryRun, cancellationToken);
                         if (!result)
                         {
                             _logger.LogError($"Could not upload workout '{_pathToWorkouts}'.");
                             return;
                         }
 
-                        if (!_dryRun)
+                        if (!dryRun)
                         {
                             // rename the file so that we wouldn't process it again in case we run the program several times
                             var destinationPath = Path.Combine(fileInfo.Directory.FullName, fileInfo.Name + ".processed");
