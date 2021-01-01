@@ -5,7 +5,7 @@ namespace Import2Strava.Models
     public class UploadStatusResponse
     {
         [JsonProperty("id")]
-        public int Id { get; set; }
+        public long Id { get; set; }
 
         [JsonProperty("id_str")]
         public string IdStr { get; set; }
@@ -20,6 +20,6 @@ namespace Import2Strava.Models
         public string Status { get; set; }
 
         [JsonProperty("activity_id")]
-        public int? ActivityId { get; set; }
+        public long? ActivityId { get; set; }
     }
 }

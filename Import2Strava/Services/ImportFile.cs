@@ -40,11 +40,14 @@ namespace Import2Strava.Services
             string accessToken = await _authenticationService.GetAccessTokenAsync();
             if (string.IsNullOrEmpty(accessToken))
             {
+                Console.WriteLine("Could not get access token, the operation is canceled.");
                 _logger.LogWarning("Could not get access token, the operation is canceled.");
                 return false;
             }
 
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+            UploadStatusResponse uploadStatusResponse = null;
 
             using (MultipartFormDataContent form = new MultipartFormDataContent())
             {
@@ -56,40 +59,47 @@ namespace Import2Strava.Services
                 form.Add(new ByteArrayContent(fileContent, 0, fileContent.Length), "file", new FileInfo(workoutModel.FilePath).Name);
 
                 HttpResponseMessage response = await _httpClient.PostAsync("/api/v3/uploads", form, cancellationToken);
-
-                response.EnsureSuccessStatusCode();
-
-                string json = response.Content.ReadAsStringAsync(cancellationToken).Result;
-                UploadStatusResponse uploadStatusResponse = JsonConvert.DeserializeObject<UploadStatusResponse>(json);
-
-                if (!string.IsNullOrEmpty(uploadStatusResponse.Error))
+                if (!CheckSuccessStatusCode(response))
                 {
-                    _logger.LogError("The API returned an error: " + uploadStatusResponse.Error);
                     return false;
                 }
 
-                await CheckStatusAsync(uploadStatusResponse.Id, cancellationToken);
-            }
-
-            return true;
-        }
-
-        private async Task<bool> CheckStatusAsync(int id, CancellationToken cancellationToken)
-        {
-            UploadStatusResponse uploadStatusResponse = null;
-
-            for (int i = 0; i < 30; i++)
-            {
-                HttpResponseMessage response = await _httpClient.GetAsync($"api/v3/uploads/{id}", cancellationToken);
-
-                response.EnsureSuccessStatusCode();
-
-                string json = response.Content.ReadAsStringAsync(cancellationToken).Result;
+                string json = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogDebug(json);
                 uploadStatusResponse = JsonConvert.DeserializeObject<UploadStatusResponse>(json);
 
                 if (!string.IsNullOrEmpty(uploadStatusResponse.Error))
                 {
-                    _logger.LogError("The API returned an error: " + uploadStatusResponse.Error);
+                    _logger.LogError($"The API returned an error: '{uploadStatusResponse.Error}'");
+                    return false;
+                }
+            }
+
+            return await CheckStatusAsync(uploadStatusResponse.Id, cancellationToken);
+        }
+
+        private async Task<bool> CheckStatusAsync(long id, CancellationToken cancellationToken)
+        {
+            UploadStatusResponse uploadStatusResponse = null;
+            string errorMessage;
+
+            for (int i = 0; i < 30; i++)
+            {
+                HttpResponseMessage response = await _httpClient.GetAsync($"api/v3/uploads/{id}", cancellationToken);
+                if (!CheckSuccessStatusCode(response))
+                {
+                    return false;
+                }
+
+                string json = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogDebug(json);
+                uploadStatusResponse = JsonConvert.DeserializeObject<UploadStatusResponse>(json);
+
+                if (!string.IsNullOrEmpty(uploadStatusResponse.Error))
+                {
+                    errorMessage = "The API returned an error: " + uploadStatusResponse.Error;
+                    Console.WriteLine(errorMessage);
+                    _logger.LogError(errorMessage);
                     return false;
                 }
 
@@ -103,11 +113,30 @@ namespace Import2Strava.Services
                 await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
             }
 
-            _logger.LogError("The API did not return success status for activity. The last response was:" + Environment.NewLine +
+            errorMessage = "The API did not return success status for activity.The last response was:" + Environment.NewLine +
                 "Status=" + uploadStatusResponse.Status + Environment.NewLine +
-                "Error=" + uploadStatusResponse.Error + Environment.NewLine);
+                "Error=" + uploadStatusResponse.Error;
+            Console.WriteLine(errorMessage);
+            _logger.LogError(errorMessage);
 
             return false;
+        }
+
+        private bool CheckSuccessStatusCode(HttpResponseMessage response)
+        {
+            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+            {
+                string errorMessage = "The server returned an error: 'TooManyRequests'." + Environment.NewLine +
+                    "Strava API usage is limited on a per-application basis using both a 15-minute and daily request limit. The default rate limit allows 100 requests every 15 minutes, with up to 1,000 requests per day." + Environment.NewLine +
+                    "Please try again later.";
+                Console.WriteLine(errorMessage);
+                _logger.LogWarning(errorMessage);
+                return false;
+            }
+
+            response.EnsureSuccessStatusCode();
+
+            return true;
         }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using Import2Strava.Models;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
@@ -34,15 +35,20 @@ namespace Import2Strava.Services
             string accessToken = await _authenticationService.GetAccessTokenAsync();
             if (string.IsNullOrEmpty(accessToken))
             {
+                Console.WriteLine("Could not get access token, the operation is canceled.");
                 _logger.LogWarning("Could not get access token, the operation is canceled.");
                 return null;
             }
 
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
-            var responseString = await _httpClient.GetStringAsync("/api/v3/athlete", cancellationToken);
+            HttpResponseMessage response = await _httpClient.GetAsync("/api/v3/athlete", cancellationToken);
 
-            AthleteModel athleteModel = JsonConvert.DeserializeObject<AthleteModel>(responseString);
+            response.EnsureSuccessStatusCode();
+
+            string responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            AthleteModel athleteModel = JsonConvert.DeserializeObject<AthleteModel>(responseBody);
             return athleteModel;
         }
     }

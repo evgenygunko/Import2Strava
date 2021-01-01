@@ -18,6 +18,7 @@ namespace Import2Strava.Models
 
             string workoutType = fileInfo.Directory.Name;
 
+            // See mapping https://developers.strava.com/docs/reference/#api-models-ActivityType
             switch (workoutType)
             {
                 case "CYCLING_SPORT":
@@ -60,7 +61,7 @@ namespace Import2Strava.Models
                 default:
                     if (dryRun)
                     {
-                        throw new Exception($"Unknown workout type: {workoutType}");
+                        throw new Exception($"Unknown workout type: {workoutType}. Please verify that you have correct mapping.");
                     }
 
                     workoutModel.ActivityType = "workout";

@@ -91,78 +91,78 @@ namespace Import2Strava.Services
             _logger.LogInformation("redirect URI: " + redirectURI);
 
             // Creates an HttpListener to listen for requests on that redirect URI.
-            using (var http = new HttpListener())
+            var http = new HttpListener();
+            http.Prefixes.Add(redirectURI);
+            _logger.LogInformation("Listening..");
+            http.Start();
+
+            // Creates the OAuth 2.0 authorization request.
+            // http://developers.strava.com/docs/authentication/
+            // approval_prompt: force or auto. Use force to always show the authorization prompt even if the user has already authorized the current application, default is auto.
+            string authorizationRequest = $"{AuthorizationEndpointUri}?response_type=code&approval_prompt=auto" +
+                $"&scope={Uri.EscapeDataString("read,activity:write")}" +
+                $"&redirect_uri={Uri.EscapeDataString(redirectURI)}" +
+                $"&client_id={_clientID}" +
+                $"&state={state}" +
+                $"&code_challenge={code_challenge}" +
+                $"&code_challenge_method={code_challenge_method}";
+
+            // Opens request in the browser.
+            // In original example they call System.Diagnostics.Process.Start(authorizationRequest), but it doesn't work - see https://github.com/dotnet/runtime/issues/28005#issuecomment-442214248
+            ProcessStartInfo psi = new ProcessStartInfo
             {
-                http.Prefixes.Add(redirectURI);
-                _logger.LogInformation("Listening..");
-                http.Start();
+                FileName = authorizationRequest,
+                UseShellExecute = true
+            };
+            Process.Start(psi);
 
-                // Creates the OAuth 2.0 authorization request.
-                string authorizationRequest = $"{AuthorizationEndpointUri}?response_type=code" +
-                    "&scope=read" +
-                    $"&redirect_uri={Uri.EscapeDataString(redirectURI)}" +
-                    $"&client_id={_clientID}" +
-                    $"&state={state}" +
-                    $"&code_challenge={code_challenge}" +
-                    $"&code_challenge_method={code_challenge_method}";
+            // Waits for the OAuth authorization response.
+            var context = await http.GetContextAsync();
 
-                // Opens request in the browser.
-                // In original example they call System.Diagnostics.Process.Start(authorizationRequest), but it doesn't work - see https://github.com/dotnet/runtime/issues/28005#issuecomment-442214248
-                ProcessStartInfo psi = new ProcessStartInfo
-                {
-                    FileName = authorizationRequest,
-                    UseShellExecute = true
-                };
-                Process.Start(psi);
+            // Brings the Console to Focus.
+            BringConsoleToFront();
 
-                // Waits for the OAuth authorization response.
-                var context = await http.GetContextAsync();
+            // Sends an HTTP response to the browser.
+            var response = context.Response;
+            string responseString = "<html><head><meta http-equiv='refresh' content='10;url=https://google.com'></head><body>You can close this window now. Return to the app to continue.</body></html>";
+            var buffer = Encoding.UTF8.GetBytes(responseString);
+            response.ContentLength64 = buffer.Length;
+            var responseOutput = response.OutputStream;
+            Task responseTask = responseOutput.WriteAsync(buffer, 0, buffer.Length).ContinueWith((task) =>
+            {
+                responseOutput.Close();
+                http.Stop();
+                _logger.LogInformation("HTTP server stopped.");
+            });
 
-                // Brings the Console to Focus.
-                BringConsoleToFront();
-
-                // Sends an HTTP response to the browser.
-                var response = context.Response;
-                string responseString = "<html><head><meta http-equiv='refresh' content='10;url=https://google.com'></head><body>You can close this window now. Return to the app to continue.</body></html>";
-                var buffer = Encoding.UTF8.GetBytes(responseString);
-                response.ContentLength64 = buffer.Length;
-                var responseOutput = response.OutputStream;
-                Task responseTask = responseOutput.WriteAsync(buffer, 0, buffer.Length).ContinueWith((task) =>
-                {
-                    responseOutput.Close();
-                    http.Stop();
-                    _logger.LogInformation("HTTP server stopped.");
-                });
-
-                // Checks for errors.
-                if (context.Request.QueryString.Get("error") != null)
-                {
-                    _logger.LogError(string.Format(CultureInfo.InvariantCulture, "OAuth authorization error: {0}.", context.Request.QueryString.Get("error")));
-                    return;
-                }
-                if (context.Request.QueryString.Get("code") == null
-                    || context.Request.QueryString.Get("state") == null)
-                {
-                    _logger.LogError("Malformed authorization response. " + context.Request.QueryString);
-                    return;
-                }
-
-                // extracts the code
-                var code = context.Request.QueryString.Get("code");
-                var incoming_state = context.Request.QueryString.Get("state");
-
-                // Compares the received state to the expected value, to ensure that
-                // this app made the request which resulted in authorization.
-                if (incoming_state != state)
-                {
-                    _logger.LogError(string.Format(CultureInfo.InvariantCulture, "Received request with invalid state ({0})", incoming_state));
-                    return;
-                }
-                _logger.LogInformation("Authorization code: " + code);
-
-                // Starts the code exchange at the Token Endpoint.
-                await PerformCodeExchangeAsync(code, code_verifier, redirectURI);
+            // Checks for errors.
+            if (context.Request.QueryString.Get("error") != null)
+            {
+                _logger.LogError(string.Format(CultureInfo.InvariantCulture, "OAuth authorization error: {0}.", context.Request.QueryString.Get("error")));
+                return;
             }
+            if (context.Request.QueryString.Get("code") == null
+                || context.Request.QueryString.Get("state") == null)
+            {
+                _logger.LogError("Malformed authorization response. " + context.Request.QueryString);
+                return;
+            }
+
+            // extracts the code
+            var code = context.Request.QueryString.Get("code");
+            var incoming_state = context.Request.QueryString.Get("state");
+
+            // Compares the received state to the expected value, to ensure that
+            // this app made the request which resulted in authorization.
+            if (incoming_state != state)
+            {
+                _logger.LogError(string.Format(CultureInfo.InvariantCulture, "Received request with invalid state ({0})", incoming_state));
+                return;
+            }
+            _logger.LogInformation("Authorization code: " + code);
+
+            // Starts the code exchange at the Token Endpoint.
+            await PerformCodeExchangeAsync(code, code_verifier, redirectURI);
 
             Console.WriteLine("The access token has been acquired.");
         }

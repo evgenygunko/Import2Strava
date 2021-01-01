@@ -88,10 +88,13 @@ namespace Import2Strava.Services
             {
                 AthleteModel athleteModel = await _userProfileService.GetProfileAsync(cancellationToken);
 
-                Console.WriteLine("Found athlete profile:");
-                Console.WriteLine($"Name: {athleteModel.FirstName} {athleteModel.LastName}");
-                Console.WriteLine($"Id: {athleteModel.Id}");
-                Console.WriteLine($"Country: {athleteModel.Country}");
+                if (athleteModel != null)
+                {
+                    Console.WriteLine("Found athlete profile:");
+                    Console.WriteLine($"Name: {athleteModel.FirstName} {athleteModel.LastName}");
+                    Console.WriteLine($"Id: {athleteModel.Id}");
+                    Console.WriteLine($"Country: {athleteModel.Country}");
+                }
             }
             catch (Exception ex)
             {

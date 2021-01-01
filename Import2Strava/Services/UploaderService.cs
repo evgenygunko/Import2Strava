@@ -43,16 +43,23 @@ namespace Import2Strava.Services
 
             try
             {
-                _logger.LogInformation("Starting upload...");
+                Console.WriteLine($"Starting uploading workouts from {_pathToWorkouts}...");
+                _logger.LogInformation($"Starting uploading workouts from {_pathToWorkouts}...");
                 int i = 0;
 
                 foreach (DirectoryInfo workoutTypeDir in workoutsDir.EnumerateDirectories())
                 {
-                    string message = $"Found activities {workoutTypeDir.Name}";
-                    Console.WriteLine(message);
-                    _logger.LogInformation(message);
+                    FileInfo[] fileInfos = workoutTypeDir.GetFiles("*.tcx");
+                    if (fileInfos.Length > 0)
+                    {
+                        string message = $"Found activities of type '{workoutTypeDir.Name}'";
+                        _logger.LogInformation(message);
+                        Console.WriteLine("===============================================");
+                        Console.WriteLine(message);
+                        Console.WriteLine("===============================================");
+                    }
 
-                    foreach (FileInfo fileInfo in workoutTypeDir.GetFiles("*.tcx"))
+                    for (int j = 0; j < fileInfos.Length; j++)
                     {
                         if (cancellationToken.IsCancellationRequested)
                         {
@@ -60,29 +67,49 @@ namespace Import2Strava.Services
                             return false;
                         }
 
-                        message = $"{i++}: Will upload {fileInfo.Name}";
+                        FileInfo fileInfo = fileInfos[j];
+
+                        string message = $"{++i}: Will upload {fileInfo.Name}";
                         Console.WriteLine(message);
                         _logger.LogInformation(message);
 
                         WorkoutModel workoutModel = WorkoutModel.FromFile(fileInfo.FullName, dryRun);
 
-                        bool result = await _importFile.ImportAsync(workoutModel, dryRun, cancellationToken);
-                        if (!result)
+                        bool result = false;
+                        try
                         {
-                            Console.WriteLine($"Could not upload workout '{fileInfo.FullName}'. Please check the log for details.");
-                            _logger.LogError($"Could not upload workout '{fileInfo.FullName}'.");
+                            result = await _importFile.ImportAsync(workoutModel, dryRun, cancellationToken);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Could not upload workout '{fileInfo.FullName}'. Please check the log for details. Error message: " + ex.ToString());
                             return false;
                         }
 
-                        Console.WriteLine($"The workout has been uploaded successfully.");
-
-                        if (!dryRun)
+                        if (!result)
                         {
-                            // rename the file so that we wouldn't process it again in case we run the program several times
-                            var destinationPath = Path.Combine(fileInfo.Directory.FullName, fileInfo.Name + ".processed");
+                            _logger.LogError($"Could not upload workout '{fileInfo.FullName}'.");
+                            Console.WriteLine($"Could not upload workout '{fileInfo.FullName}'. Please check the log for details.");
+                            Console.WriteLine("Do you want to mark this workout skipped and continue? Y/n");
+                            ConsoleKeyInfo cki = Console.ReadKey(true);
+                            if (cki.Key != ConsoleKey.Y)
+                            {
+                                return false;
+                            }
 
-                            _logger.LogInformation($"Renaming workout file to destinationPath");
-                            File.Move(fileInfo.FullName, destinationPath);
+                            if (!dryRun)
+                            {
+                                MarkFileSkipped(fileInfo);
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine($"The workout has been uploaded successfully.");
+
+                            if (!dryRun)
+                            {
+                                MarkFileProcessed(fileInfo);
+                            }
                         }
                     }
                 }
@@ -96,6 +123,25 @@ namespace Import2Strava.Services
             _logger.LogInformation("Upload has finished.");
 
             return true;
+        }
+
+        private void MarkFileSkipped(FileInfo fileInfo)
+        {
+            var destinationPath = Path.Combine(fileInfo.Directory.FullName, fileInfo.Name + ".skipped");
+            RenameFile(fileInfo.FullName, destinationPath);
+        }
+
+        private void MarkFileProcessed(FileInfo fileInfo)
+        {
+            var destinationPath = Path.Combine(fileInfo.Directory.FullName, fileInfo.Name + ".processed");
+            RenameFile(fileInfo.FullName, destinationPath);
+        }
+
+        private void RenameFile(string path, string newPath)
+        {
+            // rename the file so that we wouldn't process it again in case we run the program several times
+            _logger.LogInformation($"Renaming workout file to: '{newPath}'");
+            File.Move(path, newPath);
         }
     }
 }
