@@ -70,14 +70,15 @@ namespace Import2Strava.Services
 
         private async Task AuthenticateAsync()
         {
+            Console.WriteLine("Starting authentication, you will be redirected to the browser...");
+            _logger.LogInformation("Starting authentication...");
+
             _accessToken = null;
             _refreshToken = null;
             _expiresAt = DateTime.Now.AddSeconds(-1);
 
             _clientID = _configuration["Strava:ClientId"];
             _clientSecret = _configuration["Strava:ClientSecret"];
-
-            _logger.LogInformation("Starting authentication...");
 
             // Generates state and PKCE values.
             string state = RandomDataBase64url(32);
@@ -106,8 +107,7 @@ namespace Import2Strava.Services
                     $"&code_challenge_method={code_challenge_method}";
 
                 // Opens request in the browser.
-                //System.Diagnostics.Process.Start(authorizationRequest);
-                // see https://github.com/dotnet/runtime/issues/28005#issuecomment-442214248
+                // In original example they call System.Diagnostics.Process.Start(authorizationRequest), but it doesn't work - see https://github.com/dotnet/runtime/issues/28005#issuecomment-442214248
                 ProcessStartInfo psi = new ProcessStartInfo
                 {
                     FileName = authorizationRequest,
@@ -123,7 +123,7 @@ namespace Import2Strava.Services
 
                 // Sends an HTTP response to the browser.
                 var response = context.Response;
-                string responseString = "<html><head><meta http-equiv='refresh' content='10;url=https://google.com'></head><body>Please return to the app.</body></html>";
+                string responseString = "<html><head><meta http-equiv='refresh' content='10;url=https://google.com'></head><body>You can close this window now. Return to the app to continue.</body></html>";
                 var buffer = Encoding.UTF8.GetBytes(responseString);
                 response.ContentLength64 = buffer.Length;
                 var responseOutput = response.OutputStream;
@@ -131,7 +131,7 @@ namespace Import2Strava.Services
                 {
                     responseOutput.Close();
                     http.Stop();
-                    Console.WriteLine("HTTP server stopped.");
+                    _logger.LogInformation("HTTP server stopped.");
                 });
 
                 // Checks for errors.
@@ -163,6 +163,8 @@ namespace Import2Strava.Services
                 // Starts the code exchange at the Token Endpoint.
                 await PerformCodeExchangeAsync(code, code_verifier, redirectURI);
             }
+
+            Console.WriteLine("The access token has been acquired.");
         }
 
         // ref http://stackoverflow.com/a/3978040
@@ -201,7 +203,7 @@ namespace Import2Strava.Services
                 {
                     // reads response body
                     string responseText = await reader.ReadToEndAsync();
-                    Console.WriteLine(responseText);
+                    _logger.LogTrace(responseText);
 
                     // converts to dictionary
                     var data = (JObject)JsonConvert.DeserializeObject(responseText);
@@ -210,6 +212,8 @@ namespace Import2Strava.Services
 
                     DateTime jan1970 = Convert.ToDateTime("1970-01-01T00:00:00Z", CultureInfo.InvariantCulture);
                     _expiresAt = jan1970.AddSeconds(data["expires_at"].Value<long>());
+
+                    _logger.LogInformation("The tokens have been acquired.");
                 }
             }
             catch (WebException ex)

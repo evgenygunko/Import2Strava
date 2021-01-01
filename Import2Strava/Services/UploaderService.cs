@@ -10,7 +10,7 @@ namespace Import2Strava.Services
 {
     public interface IUploaderService
     {
-        Task UploadWorkoutsAsync(bool dryRun, CancellationToken cancellationToken);
+        Task<bool> UploadWorkoutsAsync(bool dryRun, CancellationToken cancellationToken);
     }
 
     public class UploaderService : IUploaderService
@@ -18,62 +18,70 @@ namespace Import2Strava.Services
         private readonly ILogger<UploaderService> _logger;
         private readonly IOptions<AppConfiguration> _appConfiguration;
         private readonly IImportFile _importFile;
-        private readonly IAuthenticationService _authenticationService;
 
         public UploaderService(
             ILogger<UploaderService> logger,
             IOptions<AppConfiguration> options,
-            IImportFile importFile,
-            IAuthenticationService authenticationService)
+            IImportFile importFile)
         {
             _logger = logger;
             _appConfiguration = options;
             _importFile = importFile;
-            _authenticationService = authenticationService;
         }
 
-        public async Task UploadWorkoutsAsync(bool dryRun, CancellationToken cancellationToken)
+        public async Task<bool> UploadWorkoutsAsync(bool dryRun, CancellationToken cancellationToken)
         {
             string _pathToWorkouts = _appConfiguration.Value.PathToWorkouts;
 
             if (!Directory.Exists(_pathToWorkouts))
             {
                 _logger.LogError($"Cannot find path to the workouts data: {_pathToWorkouts}.");
-                return;
+                return false;
             }
 
             DirectoryInfo workoutsDir = new DirectoryInfo(_pathToWorkouts);
 
             try
             {
+                _logger.LogInformation("Starting upload...");
                 int i = 0;
 
                 foreach (DirectoryInfo workoutTypeDir in workoutsDir.EnumerateDirectories())
                 {
-                    _logger.LogInformation($"Found activities {workoutTypeDir.Name}");
+                    string message = $"Found activities {workoutTypeDir.Name}";
+                    Console.WriteLine(message);
+                    _logger.LogInformation(message);
 
                     foreach (FileInfo fileInfo in workoutTypeDir.GetFiles("*.tcx"))
                     {
                         if (cancellationToken.IsCancellationRequested)
                         {
                             _logger.LogInformation("Cancellation requested");
-                            return;
+                            return false;
                         }
 
-                        _logger.LogInformation($"{i++}: Will upload {fileInfo.Name}");
+                        message = $"{i++}: Will upload {fileInfo.Name}";
+                        Console.WriteLine(message);
+                        _logger.LogInformation(message);
+
                         WorkoutModel workoutModel = WorkoutModel.FromFile(fileInfo.FullName, dryRun);
 
                         bool result = await _importFile.ImportAsync(workoutModel, dryRun, cancellationToken);
                         if (!result)
                         {
-                            _logger.LogError($"Could not upload workout '{_pathToWorkouts}'.");
-                            return;
+                            Console.WriteLine($"Could not upload workout '{fileInfo.FullName}'. Please check the log for details.");
+                            _logger.LogError($"Could not upload workout '{fileInfo.FullName}'.");
+                            return false;
                         }
+
+                        Console.WriteLine($"The workout has been uploaded successfully.");
 
                         if (!dryRun)
                         {
                             // rename the file so that we wouldn't process it again in case we run the program several times
                             var destinationPath = Path.Combine(fileInfo.Directory.FullName, fileInfo.Name + ".processed");
+
+                            _logger.LogInformation($"Renaming workout file to destinationPath");
                             File.Move(fileInfo.FullName, destinationPath);
                         }
                     }
@@ -82,10 +90,12 @@ namespace Import2Strava.Services
             catch (Exception ex)
             {
                 _logger.LogError("An error occurred: " + ex);
-                return;
+                return false;
             }
 
-            _logger.LogInformation("All done.");
+            _logger.LogInformation("Upload has finished.");
+
+            return true;
         }
     }
 }

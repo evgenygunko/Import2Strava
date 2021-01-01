@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using NLog.Extensions.Logging;
 using System;
 
 namespace Import2Strava
@@ -48,8 +49,10 @@ namespace Import2Strava
                 })
                 .ConfigureLogging((hostContext, configLogging) =>
                 {
-                    configLogging.AddConsole();
+                    configLogging.ClearProviders();
 
+                    configLogging.AddDebug();
+                    configLogging.AddNLog(hostContext.Configuration);
                 })
                 .UseConsoleLifetime();
     }

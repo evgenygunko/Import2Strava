@@ -47,7 +47,7 @@ namespace Import2Strava.Services
                 Console.WriteLine("    2: test run");
                 Console.WriteLine("    3: upload activities");
 
-                ConsoleKeyInfo cki = Console.ReadKey();
+                ConsoleKeyInfo cki = Console.ReadKey(true);
                 switch (cki.Key)
                 {
                     case ConsoleKey.D1:
@@ -64,14 +64,13 @@ namespace Import2Strava.Services
 
                     case ConsoleKey.D0:
                     case ConsoleKey.Escape:
-                        break;
+                        _applicationLifetime.StopApplication();
+                        return;
                 }
 
                 Console.WriteLine("Press any key to continue...");
-                Console.ReadKey();
+                Console.ReadKey(true);
             }
-
-            _applicationLifetime.StopApplication();
         }
 
         public Task StopAsync(CancellationToken cancellationToken)
@@ -96,7 +95,7 @@ namespace Import2Strava.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError("Error occurred: " + ex);
+                _logger.LogError("An error occurred: " + ex);
             }
         }
 
@@ -104,11 +103,19 @@ namespace Import2Strava.Services
         {
             try
             {
-                await _uploaderService.UploadWorkoutsAsync(dryRun, cancellationToken);
+                bool result = await _uploaderService.UploadWorkoutsAsync(dryRun, cancellationToken);
+                if (result)
+                {
+                    Console.WriteLine("Upload has finished.");
+                }
+                else
+                {
+                    Console.WriteLine("Upload was not successful.");
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError("Error occurred: " + ex);
+                _logger.LogError("An error occurred: " + ex);
             }
         }
 
