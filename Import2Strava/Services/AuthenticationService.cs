@@ -56,11 +56,8 @@ namespace Import2Strava.Services
                 {
                     _logger.LogInformation("Exchange refresh token for new authentication token...");
 
-                    // Creates a redirect URI using an available port on the loopback address.
-                    string redirectURI = $"http://{IPAddress.Loopback}:{GetRandomUnusedPort()}/";
-                    string code_verifier = RandomDataBase64url(32);
-
-                    await PerformCodeExchangeAsync(_refreshToken, code_verifier, redirectURI);
+                    // http://developers.strava.com/docs/authentication/
+                    await RefreshExpiredAccessTokenAsync();
                 }
             }
 
@@ -237,25 +234,35 @@ namespace Import2Strava.Services
             _logger.LogInformation("Authorization code: " + code);
 
             // Starts the code exchange at the Token Endpoint.
-            await PerformCodeExchangeAsync(code, code_verifier, redirectURI);
+            await RequestAccessTokenAsync(code, code_verifier, redirectURI);
 
             Console.WriteLine("The access token has been acquired.");
         }
 
-        private async Task PerformCodeExchangeAsync(string code, string code_verifier, string redirectURI)
+        private async Task RequestAccessTokenAsync(string code, string code_verifier, string redirectURI)
+        {
+            string tokenRequestBody = $"code={code}&redirect_uri={Uri.EscapeDataString(redirectURI)}&client_id={_clientID}&code_verifier={code_verifier}&client_secret={_clientSecret}&scope=&grant_type=authorization_code";
+            await PerformCodeExchangeAsync(tokenRequestBody);
+        }
+
+        private async Task RefreshExpiredAccessTokenAsync()
+        {
+            string tokenRequestBody = $"client_id={_clientID}&client_secret={_clientSecret}&grant_type=refresh_token&refresh_token={_refreshToken}";
+            await PerformCodeExchangeAsync(tokenRequestBody);
+        }
+
+        private async Task PerformCodeExchangeAsync(string uriParameters)
         {
             _logger.LogInformation("Exchanging code for tokens...");
 
             // builds the  request
-            string tokenRequestBody = $"code={code}&redirect_uri={Uri.EscapeDataString(redirectURI)}&client_id={_clientID}&code_verifier={code_verifier}&client_secret={_clientSecret}&scope=&grant_type=authorization_code";
-
             // sends the request
             HttpWebRequest tokenRequest = (HttpWebRequest)WebRequest.Create(_tokenRequestUri);
             tokenRequest.Method = "POST";
             tokenRequest.ContentType = "application/x-www-form-urlencoded";
             tokenRequest.Accept = "Accept=text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
 
-            byte[] byteVersion = Encoding.ASCII.GetBytes(tokenRequestBody);
+            byte[] byteVersion = Encoding.ASCII.GetBytes(uriParameters);
             tokenRequest.ContentLength = byteVersion.Length;
             Stream stream = tokenRequest.GetRequestStream();
             await stream.WriteAsync(byteVersion, 0, byteVersion.Length);

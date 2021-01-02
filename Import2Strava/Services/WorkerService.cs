@@ -69,7 +69,7 @@ namespace Import2Strava.Services
                         return;
                 }
 
-                Console.WriteLine(string.Format(CultureInfo.InvariantCulture, "{0}{0}{0}Press any key to continue...", Environment.NewLine));
+                Console.WriteLine(string.Format(CultureInfo.InvariantCulture, "{0}{0}Press any key to continue...", Environment.NewLine));
                 Console.ReadKey(true);
             }
         }
