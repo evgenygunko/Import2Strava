@@ -1,10 +1,10 @@
-﻿using Import2Strava.Models;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using System;
+﻿using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Import2Strava.Models;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Import2Strava.Services
 {
@@ -31,20 +31,20 @@ namespace Import2Strava.Services
 
         public async Task<bool> UploadWorkoutsAsync(bool dryRun, CancellationToken cancellationToken)
         {
-            string _pathToWorkouts = _appConfiguration.Value.PathToWorkouts;
+            string pathToWorkouts = _appConfiguration.Value.PathToWorkouts;
 
-            if (!Directory.Exists(_pathToWorkouts))
+            if (!Directory.Exists(pathToWorkouts))
             {
-                _logger.LogError($"Cannot find path to the workouts data: {_pathToWorkouts}.");
+                _logger.LogError($"Cannot find path to the workouts data: {pathToWorkouts}.");
                 return false;
             }
 
-            DirectoryInfo workoutsDir = new DirectoryInfo(_pathToWorkouts);
+            DirectoryInfo workoutsDir = new DirectoryInfo(pathToWorkouts);
 
             try
             {
-                Console.WriteLine($"Starting uploading workouts from {_pathToWorkouts}...");
-                _logger.LogInformation($"Starting uploading workouts from {_pathToWorkouts}...");
+                Console.WriteLine($"Starting uploading workouts from {pathToWorkouts}...");
+                _logger.LogInformation($"Starting uploading workouts from {pathToWorkouts}...");
                 int i = 0;
 
                 foreach (DirectoryInfo workoutTypeDir in workoutsDir.EnumerateDirectories())

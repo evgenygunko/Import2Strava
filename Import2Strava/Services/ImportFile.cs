@@ -1,12 +1,12 @@
-﻿using Import2Strava.Models;
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using System;
+﻿using System;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
+using Import2Strava.Models;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 
 namespace Import2Strava.Services
 {
@@ -21,7 +21,8 @@ namespace Import2Strava.Services
         private readonly ILogger<ImportFile> _logger;
         private readonly IAuthenticationService _authenticationService;
 
-        public ImportFile(HttpClient httpClient,
+        public ImportFile(
+            HttpClient httpClient,
             ILogger<ImportFile> logger,
             IAuthenticationService authenticationService)
         {
@@ -32,6 +33,11 @@ namespace Import2Strava.Services
 
         public async Task<bool> ImportAsync(WorkoutModel workoutModel, bool dryRun, CancellationToken cancellationToken)
         {
+            if (workoutModel == null)
+            {
+                throw new ArgumentNullException(nameof(workoutModel));
+            }
+
             if (dryRun)
             {
                 return true;
@@ -58,7 +64,7 @@ namespace Import2Strava.Services
                 byte[] fileContent = await File.ReadAllBytesAsync(workoutModel.FilePath, cancellationToken);
                 form.Add(new ByteArrayContent(fileContent, 0, fileContent.Length), "file", new FileInfo(workoutModel.FilePath).Name);
 
-                HttpResponseMessage response = await _httpClient.PostAsync("/api/v3/uploads", form, cancellationToken);
+                HttpResponseMessage response = await _httpClient.PostAsync(new Uri("/api/v3/uploads", UriKind.Relative), form, cancellationToken);
                 if (!CheckSuccessStatusCode(response))
                 {
                     return false;
@@ -85,7 +91,7 @@ namespace Import2Strava.Services
 
             for (int i = 0; i < 30; i++)
             {
-                HttpResponseMessage response = await _httpClient.GetAsync($"api/v3/uploads/{id}", cancellationToken);
+                HttpResponseMessage response = await _httpClient.GetAsync(new Uri($"api/v3/uploads/{id}", UriKind.Relative), cancellationToken);
                 if (!CheckSuccessStatusCode(response))
                 {
                     return false;

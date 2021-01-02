@@ -1,9 +1,10 @@
-﻿using Import2Strava.Models;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using System;
+﻿using System;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
+using Import2Strava.Models;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Import2Strava.Services
 {
@@ -68,7 +69,7 @@ namespace Import2Strava.Services
                         return;
                 }
 
-                Console.WriteLine("Press any key to continue...");
+                Console.WriteLine(string.Format(CultureInfo.InvariantCulture, "{0}{0}{0}Press any key to continue...", Environment.NewLine));
                 Console.ReadKey(true);
             }
         }
@@ -98,7 +99,9 @@ namespace Import2Strava.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError("An error occurred: " + ex);
+                string errorMessage = "An error occurred: " + ex;
+                Console.WriteLine(errorMessage);
+                _logger.LogError(errorMessage);
             }
         }
 
@@ -118,7 +121,9 @@ namespace Import2Strava.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError("An error occurred: " + ex);
+                string errorMessage = "An error occurred: " + ex;
+                Console.WriteLine(errorMessage);
+                _logger.LogError(errorMessage);
             }
         }
 

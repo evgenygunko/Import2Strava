@@ -1,19 +1,19 @@
-﻿using Import2Strava.Models;
+﻿using System;
+using Import2Strava.Models;
 using Import2Strava.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NLog.Extensions.Logging;
-using System;
 
 namespace Import2Strava
 {
-    public class Program
+    public static class Program
     {
         public static void Main(string[] args) => CreateHostBuilder(args).Build().Run();
 
-        static IHostBuilder CreateHostBuilder(string[] args) =>
+        private static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
                 .ConfigureAppConfiguration((hostingContext, configuration) =>
                 {

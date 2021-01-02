@@ -1,0 +1,72 @@
+trigger:
+  branches:
+    include:
+    - master
+    - ci/*
+    - bug/*
+    - feature/*
+    - ci-*
+    - bug-*
+    - feature-*
+
+stages:
+- stage: Build
+
+  jobs:
+  - job: Build
+
+    steps:
+    - bash: |
+        echo "##vso[build.updatebuildnumber]$(major).$(minor).$(Build.BuildId)"
+      name: SetBuildName
+
+    - task: PowerShell@2
+      displayName: 'PowerShell Script - update version number in project files'
+      inputs:
+        targetType: filePath
+        arguments: "-version '$(Build.BuildNumber)'"
+        filePath: './.build/UpdateVersion.ps1'
+
+    # Uncomment when we we get unit tests added to the project. For now just make sure that the project compiles successfully
+    # - task: DotNetCoreCLI@2
+    #   inputs:
+    #     command: test
+    #     arguments: '--configuration $(buildConfiguration) --collect "XPlat Code coverage"'
+
+    # - script: 'dotnet tool install --global dotnet-reportgenerator-globaltool --version 4.5.8'
+    #   displayName: 'Install ReportGenerator tool'
+
+    # - script: |
+    #     dotnet tool install dotnet-reportgenerator-globaltool --tool-path .
+    #     ./reportgenerator -reports:$(Agent.TempDirectory)/**/coverage.cobertura.xml -targetdir:$(Build.SourcesDirectory)/coverlet/reports -reporttypes:'HtmlInline_AzurePipelines;Cobertura'
+    #   displayName: Create Code Coverage Report
+
+    # - task: PublishCodeCoverageResults@1
+    #   displayName: 'Publish code coverage'
+    #   inputs:
+    #     codeCoverageTool: Cobertura
+    #     summaryFileLocation: '$(Build.SourcesDirectory)/coverlet/reports/Cobertura.xml'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'dotnet publish'
+      inputs:
+        command: publish
+        arguments: '--configuration $(buildConfiguration)'
+        publishWebProjects: false
+        zipAfterPublish: false
+
+    - task: CopyFiles@2
+      displayName: 'Copy Files to: $(build.artifactstagingdirectory)'
+      inputs:
+        SourceFolder: '$(build.sourcesdirectory)'
+        Contents: '**/bin/$(BuildConfiguration)/net5.0/publish/**'
+        TargetFolder: '$(build.artifactstagingdirectory)'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Artifact: drop'
+      inputs:
+        PathtoPublish: '$(build.artifactstagingdirectory)'
+
+- template: /.azuredevops/templates/stages-sync-with-github.yaml
+  parameters:
+    repository: Import2Strava

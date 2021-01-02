@@ -1,8 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -12,6 +8,10 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Import2Strava.Services
 {
@@ -22,21 +22,22 @@ namespace Import2Strava.Services
 
     public class AuthenticationService : IAuthenticationService
     {
-        private const string AuthorizationEndpointUri = "https://www.strava.com/oauth/authorize";
-        private const string TokenRequestUri = "https://www.strava.com/oauth/token";
+        private readonly Uri _authorizationEndpointUri = new Uri("https://www.strava.com/oauth/authorize");
+        private readonly Uri _tokenRequestUri = new Uri("https://www.strava.com/oauth/token");
+
+        private readonly IConfiguration _configuration;
+        private readonly ILogger<AuthenticationService> _logger;
 
         // client configuration
         private string _clientID;
         private string _clientSecret;
 
-        private readonly IConfiguration _configuration;
-        private readonly ILogger<AuthenticationService> _logger;
-
         private string _accessToken;
         private string _refreshToken;
         private DateTime _expiresAt;
 
-        public AuthenticationService(IConfiguration configuration,
+        public AuthenticationService(
+            IConfiguration configuration,
             ILogger<AuthenticationService> logger)
         {
             _configuration = configuration;
@@ -65,6 +66,78 @@ namespace Import2Strava.Services
 
             return _accessToken;
         }
+
+        #region Private Static Methods
+
+        // ref http://stackoverflow.com/a/3978040
+        private static int GetRandomUnusedPort()
+        {
+            var listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+            var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+            listener.Stop();
+            return port;
+        }
+
+        /// <summary>
+        /// Returns URI-safe data with a given input length.
+        /// </summary>
+        /// <param name="length">Input length (nb. output will be longer).</param>
+        private static string RandomDataBase64url(uint length)
+        {
+            using (RNGCryptoServiceProvider rng = new RNGCryptoServiceProvider())
+            {
+                byte[] bytes = new byte[length];
+                rng.GetBytes(bytes);
+
+                return ToBase64urlencodeNoPadding(bytes);
+            }
+        }
+
+        /// <summary>
+        /// Returns the SHA256 hash of the input string.
+        /// </summary>
+        private static byte[] ToSHA256(string inputStirng)
+        {
+            byte[] bytes = Encoding.ASCII.GetBytes(inputStirng);
+            using (SHA256Managed sha256 = new SHA256Managed())
+            {
+                return sha256.ComputeHash(bytes);
+            }
+        }
+
+        /// <summary>
+        /// Base64url no-padding encodes the given input buffer.
+        /// </summary>
+        private static string ToBase64urlencodeNoPadding(byte[] buffer)
+        {
+            string base64 = Convert.ToBase64String(buffer);
+
+            // Converts base64 to base64url.
+            base64 = base64.Replace("+", "-");
+            base64 = base64.Replace("/", "_");
+
+            // Strips padding.
+            base64 = base64.Replace("=", string.Empty);
+
+            return base64;
+        }
+
+        // Hack to bring the Console window to front.
+        // ref: http://stackoverflow.com/a/12066376
+        [DllImport("kernel32.dll", ExactSpelling = true)]
+        private static extern IntPtr GetConsoleWindow();
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        private static void BringConsoleToFront()
+        {
+            SetForegroundWindow(GetConsoleWindow());
+        }
+
+        #endregion
 
         #region Private Methods
 
@@ -99,7 +172,7 @@ namespace Import2Strava.Services
             // Creates the OAuth 2.0 authorization request.
             // http://developers.strava.com/docs/authentication/
             // approval_prompt: force or auto. Use force to always show the authorization prompt even if the user has already authorized the current application, default is auto.
-            string authorizationRequest = $"{AuthorizationEndpointUri}?response_type=code&approval_prompt=auto" +
+            string authorizationRequest = $"{_authorizationEndpointUri}?response_type=code&approval_prompt=auto" +
                 $"&scope={Uri.EscapeDataString("read,activity:write")}" +
                 $"&redirect_uri={Uri.EscapeDataString(redirectURI)}" +
                 $"&client_id={_clientID}" +
@@ -141,6 +214,7 @@ namespace Import2Strava.Services
                 _logger.LogError(string.Format(CultureInfo.InvariantCulture, "OAuth authorization error: {0}.", context.Request.QueryString.Get("error")));
                 return;
             }
+
             if (context.Request.QueryString.Get("code") == null
                 || context.Request.QueryString.Get("state") == null)
             {
@@ -159,22 +233,13 @@ namespace Import2Strava.Services
                 _logger.LogError(string.Format(CultureInfo.InvariantCulture, "Received request with invalid state ({0})", incoming_state));
                 return;
             }
+
             _logger.LogInformation("Authorization code: " + code);
 
             // Starts the code exchange at the Token Endpoint.
             await PerformCodeExchangeAsync(code, code_verifier, redirectURI);
 
             Console.WriteLine("The access token has been acquired.");
-        }
-
-        // ref http://stackoverflow.com/a/3978040
-        private static int GetRandomUnusedPort()
-        {
-            var listener = new TcpListener(IPAddress.Loopback, 0);
-            listener.Start();
-            var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-            listener.Stop();
-            return port;
         }
 
         private async Task PerformCodeExchangeAsync(string code, string code_verifier, string redirectURI)
@@ -185,14 +250,15 @@ namespace Import2Strava.Services
             string tokenRequestBody = $"code={code}&redirect_uri={Uri.EscapeDataString(redirectURI)}&client_id={_clientID}&code_verifier={code_verifier}&client_secret={_clientSecret}&scope=&grant_type=authorization_code";
 
             // sends the request
-            HttpWebRequest tokenRequest = (HttpWebRequest)WebRequest.Create(TokenRequestUri);
+            HttpWebRequest tokenRequest = (HttpWebRequest)WebRequest.Create(_tokenRequestUri);
             tokenRequest.Method = "POST";
             tokenRequest.ContentType = "application/x-www-form-urlencoded";
             tokenRequest.Accept = "Accept=text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
-            byte[] _byteVersion = Encoding.ASCII.GetBytes(tokenRequestBody);
-            tokenRequest.ContentLength = _byteVersion.Length;
+
+            byte[] byteVersion = Encoding.ASCII.GetBytes(tokenRequestBody);
+            tokenRequest.ContentLength = byteVersion.Length;
             Stream stream = tokenRequest.GetRequestStream();
-            await stream.WriteAsync(_byteVersion, 0, _byteVersion.Length);
+            await stream.WriteAsync(byteVersion, 0, byteVersion.Length);
             stream.Close();
 
             try
@@ -231,72 +297,8 @@ namespace Import2Strava.Services
                             _logger.LogInformation(responseText);
                         }
                     }
-
                 }
             }
-        }
-
-        /// <summary>
-        /// Returns URI-safe data with a given input length.
-        /// </summary>
-        /// <param name="length">Input length (nb. output will be longer)</param>
-        /// <returns></returns>
-        private static string RandomDataBase64url(uint length)
-        {
-            using (RNGCryptoServiceProvider rng = new RNGCryptoServiceProvider())
-            {
-                byte[] bytes = new byte[length];
-                rng.GetBytes(bytes);
-
-                return ToBase64urlencodeNoPadding(bytes);
-            }
-        }
-
-        /// <summary>
-        /// Returns the SHA256 hash of the input string.
-        /// </summary>
-        /// <param name="inputStirng"></param>
-        /// <returns></returns>
-        private static byte[] ToSHA256(string inputStirng)
-        {
-            byte[] bytes = Encoding.ASCII.GetBytes(inputStirng);
-            using (SHA256Managed sha256 = new SHA256Managed())
-            {
-                return sha256.ComputeHash(bytes);
-            }
-        }
-
-        /// <summary>
-        /// Base64url no-padding encodes the given input buffer.
-        /// </summary>
-        /// <param name="buffer"></param>
-        /// <returns></returns>
-        private static string ToBase64urlencodeNoPadding(byte[] buffer)
-        {
-            string base64 = Convert.ToBase64String(buffer);
-
-            // Converts base64 to base64url.
-            base64 = base64.Replace("+", "-");
-            base64 = base64.Replace("/", "_");
-            // Strips padding.
-            base64 = base64.Replace("=", "");
-
-            return base64;
-        }
-
-        // Hack to bring the Console window to front.
-        // ref: http://stackoverflow.com/a/12066376
-
-        [DllImport("kernel32.dll", ExactSpelling = true)]
-        private static extern IntPtr GetConsoleWindow();
-
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool SetForegroundWindow(IntPtr hWnd);
-
-        private static void BringConsoleToFront()
-        {
-            SetForegroundWindow(GetConsoleWindow());
         }
 
         #endregion

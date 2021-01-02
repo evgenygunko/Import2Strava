@@ -1,11 +1,11 @@
-﻿using Import2Strava.Models;
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using System;
+﻿using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
+using Import2Strava.Models;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 
 namespace Import2Strava.Services
 {
@@ -42,7 +42,7 @@ namespace Import2Strava.Services
 
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
-            HttpResponseMessage response = await _httpClient.GetAsync("/api/v3/athlete", cancellationToken);
+            HttpResponseMessage response = await _httpClient.GetAsync(new Uri("/api/v3/athlete", UriKind.Relative), cancellationToken);
 
             response.EnsureSuccessStatusCode();
 

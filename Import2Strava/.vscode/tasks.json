@@ -7,15 +7,11 @@
             "type": "process",
             "args": [
                 "build",
-                "${workspaceFolder}/Import2Strava/Import2Strava.csproj",
+                "${workspaceFolder}/Import2Strava.csproj",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],
-            "problemMatcher": "$msCompile",
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            }
+            "problemMatcher": "$msCompile"
         },
         {
             "label": "publish",
@@ -23,7 +19,7 @@
             "type": "process",
             "args": [
                 "publish",
-                "${workspaceFolder}/Import2Strava/Import2Strava.csproj",
+                "${workspaceFolder}/Import2Strava.csproj",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],
@@ -36,7 +32,7 @@
             "args": [
                 "watch",
                 "run",
-                "${workspaceFolder}/Import2Strava/Import2Strava.csproj",
+                "${workspaceFolder}/Import2Strava.csproj",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],

@@ -5,6 +5,14 @@ namespace Import2Strava.Models
 {
     public class WorkoutModel
     {
+        public string ActivityType { get; private set; }
+
+        public string Name { get; private set; }
+
+        public string DataType { get; private set; }
+
+        public string FilePath { get; private set; }
+
         public static WorkoutModel FromFile(string filePath, bool dryRun)
         {
             FileInfo fileInfo = new FileInfo(filePath);
@@ -74,13 +82,5 @@ namespace Import2Strava.Models
 
             return workoutModel;
         }
-
-        public string ActivityType { get; private set; }
-
-        public string Name { get; private set; }
-
-        public string DataType { get; private set; }
-
-        public string FilePath { get; private set; }
     }
 }
