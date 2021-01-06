@@ -24,7 +24,7 @@ namespace Import2Strava
                     // To save the secrets in the secret storage, run this command in the directory with your project file:
                     // dotnet user-secrets set "Strava:ClientId" "YOURCLIENTID".
                     // dotnet user-secrets set "Strava:ClientSecret" "YOURCLIENTSECRET".
-                    // Where "YOURCLIENTID" and "YOURCLIENTSECRET" you should copy from your app configuration on STrava portal: https://www.strava.com/settings/api
+                    // Where "YOURCLIENTID" and "YOURCLIENTSECRET" you should copy from your app configuration on Strava portal: https://www.strava.com/settings/api
                     // The command below loads configuration for Secret Storage and names it available with a call: configuration["Strava:ClientId"]
                     configuration.AddUserSecrets<WorkerService>();
                 })
