@@ -12,6 +12,7 @@ namespace Import2Strava.Services
     {
         private readonly IHostApplicationLifetime _applicationLifetime;
         private ILogger<WorkerService> _logger;
+        private IArchiveParser _archiveParser;
         private IUploaderService _uploaderService;
         private IUserProfileService _userProfileService;
         private IAuthenticationService _authenticationService;
@@ -19,12 +20,14 @@ namespace Import2Strava.Services
         public WorkerService(
             IHostApplicationLifetime applicationLifetime,
             ILogger<WorkerService> logger,
+            IArchiveParser archiveParser,
             IUploaderService uploaderService,
             IUserProfileService userProfileService,
             IAuthenticationService authenticationService)
         {
             _applicationLifetime = applicationLifetime;
             _logger = logger;
+            _archiveParser = archiveParser;
             _uploaderService = uploaderService;
             _userProfileService = userProfileService;
             _authenticationService = authenticationService;
@@ -44,22 +47,27 @@ namespace Import2Strava.Services
 
                 Console.WriteLine("Please select an action:");
                 Console.WriteLine("    0: exit");
-                Console.WriteLine("    1: get profile");
-                Console.WriteLine("    2: test run");
-                Console.WriteLine("    3: upload activities");
+                Console.WriteLine("    1: parse workouts");
+                Console.WriteLine("    2: get profile");
+                Console.WriteLine("    3: test run");
+                Console.WriteLine("    4: upload activities");
 
                 ConsoleKeyInfo cki = Console.ReadKey(true);
                 switch (cki.Key)
                 {
                     case ConsoleKey.D1:
-                        await GetProfileAsync(cancellationToken);
+                        ParseWorkouts();
                         break;
 
                     case ConsoleKey.D2:
-                        await UploadWorkoutsAsync(true, cancellationToken);
+                        await GetProfileAsync(cancellationToken);
                         break;
 
                     case ConsoleKey.D3:
+                        await UploadWorkoutsAsync(true, cancellationToken);
+                        break;
+
+                    case ConsoleKey.D4:
                         await UploadWorkoutsAsync(false, cancellationToken);
                         break;
 
@@ -82,6 +90,28 @@ namespace Import2Strava.Services
         #endregion
 
         #region Private Methods
+
+        private void ParseWorkouts()
+        {
+            try
+            {
+                bool result = _archiveParser.ParseWorkouts();
+                if (result)
+                {
+                    Console.WriteLine("Finished parsing.");
+                }
+                else
+                {
+                    Console.WriteLine("Parsing ended with errors.");
+                }
+            }
+            catch (Exception ex)
+            {
+                string errorMessage = "An error occurred: " + ex;
+                Console.WriteLine(errorMessage);
+                _logger.LogError(errorMessage);
+            }
+        }
 
         private async Task GetProfileAsync(CancellationToken cancellationToken)
         {

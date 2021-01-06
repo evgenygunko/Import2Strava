@@ -33,6 +33,7 @@ namespace Import2Strava
                     services.AddLogging();
                     services.Configure<AppConfiguration>(hostContext.Configuration.GetSection("Application"));
 
+                    services.AddSingleton<IArchiveParser, ArchiveParser>();
                     services.AddSingleton<IUploaderService, UploaderService>();
                     services.AddSingleton<IAuthenticationService, AuthenticationService>();
 
