@@ -65,6 +65,13 @@ namespace Import2Strava.Services
                 form.Add(new ByteArrayContent(fileContent, 0, fileContent.Length), "file", new FileInfo(workoutModel.FilePath).Name);
 
                 HttpResponseMessage response = await _httpClient.PostAsync(new Uri("/api/v3/uploads", UriKind.Relative), form, cancellationToken);
+
+                if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                {
+                    await PauseForStravaTimeoutAsync(cancellationToken);
+                    response = await _httpClient.PostAsync(new Uri("/api/v3/uploads", UriKind.Relative), form, cancellationToken);
+                }
+
                 if (!CheckSuccessStatusCode(response))
                 {
                     return false;
@@ -92,6 +99,13 @@ namespace Import2Strava.Services
             for (int i = 0; i < 30; i++)
             {
                 HttpResponseMessage response = await _httpClient.GetAsync(new Uri($"api/v3/uploads/{id}", UriKind.Relative), cancellationToken);
+
+                if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                {
+                    await PauseForStravaTimeoutAsync(cancellationToken);
+                    response = await _httpClient.GetAsync(new Uri($"api/v3/uploads/{id}", UriKind.Relative), cancellationToken);
+                }
+
                 if (!CheckSuccessStatusCode(response))
                 {
                     return false;
@@ -143,6 +157,28 @@ namespace Import2Strava.Services
             response.EnsureSuccessStatusCode();
 
             return true;
+        }
+
+        private async Task PauseForStravaTimeoutAsync(CancellationToken cancellationToken)
+        {
+            string errorMessage = "The server returned an error: 'TooManyRequests'." + Environment.NewLine +
+                        "Strava API usage is limited on a per-application basis using both a 15-minute and daily request limit. The default rate limit allows 100 requests every 15 minutes, with up to 1,000 requests per day." + Environment.NewLine;
+            Console.WriteLine(errorMessage);
+            _logger.LogWarning(errorMessage);
+
+            for (int i = 16; i > 0; i--)
+            {
+                errorMessage = $"Waiting {i} minutes before continue...";
+                Console.WriteLine(errorMessage);
+                _logger.LogWarning(errorMessage);
+
+                await Task.Delay(TimeSpan.FromMinutes(1), cancellationToken);
+            }
+
+            errorMessage = "Repeating the last operation...";
+
+            Console.WriteLine(errorMessage);
+            _logger.LogWarning(errorMessage);
         }
     }
 }
